@@ -1,0 +1,12 @@
+{
+  "startURL": "",
+  "refreshInterval": 3000,
+  "minDelay": 800,
+  "maxDelay": 2000,
+  "dailyLimitAction": "skip",
+  "bonus5000CooldownMinutes": 10,
+  "cleanupRetentionDays": 90,
+  "historyExportPath": "",
+  "debugLogLevel": "info",
+  "logRetentionDays": 30
+}

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <title>Bonus Reload Bot</title>
+  <link rel="stylesheet" href="./styles/app.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <div>
+        <div class="brand-title">Bonus Reload Bot</div>
+        <div class="brand-subtitle">Production V1</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" data-testid="main-tabs">
+      <button class="tab active" data-tab="dashboard" data-testid="tab-dashboard">Dashboard</button>
+      <button class="tab" data-tab="skipped" data-testid="tab-skipped">
+        Skipped Transactions
+        <span class="badge" id="skipped-badge" data-testid="skipped-badge" hidden>0</span>
+      </button>
+      <button class="tab" data-tab="history" data-testid="tab-history">Approval History</button>
+      <button class="tab" data-tab="dbviewer" data-testid="tab-dbviewer">Database Viewer</button>
+      <button class="tab" data-tab="settings" data-testid="tab-settings">Settings</button>
+    </nav>
+    <div class="status-cluster">
+      <span class="pill" id="pill-browser" data-testid="pill-browser">Browser</span>
+      <span class="pill" id="pill-login" data-testid="pill-login">Login</span>
+      <span class="pill" id="pill-running" data-testid="pill-running">Idle</span>
+    </div>
+  </header>
+
+  <main class="app-body">
+    <!-- ============================================================ Dashboard -->
+    <section class="view" data-view="dashboard">
+      <div class="row" id="integrity-banner" data-testid="integrity-banner" hidden>
+        <div class="banner banner-warn">
+          <strong>Startup Integrity Check failed:</strong>
+          <span id="integrity-message"></span>
+        </div>
+      </div>
+
+      <div class="row control-row">
+        <button class="btn btn-primary" id="btn-open-panel" data-testid="btn-open-panel">Open Panel</button>
+        <button class="btn btn-success" id="btn-start" data-testid="btn-start">Start Bot</button>
+        <button class="btn btn-danger"  id="btn-stop"  data-testid="btn-stop"  disabled>Stop Bot</button>
+        <button class="btn btn-ghost"   id="btn-run-once" data-testid="btn-run-once">Run One Cycle</button>
+        <span class="poll-indicator" data-testid="poll-indicator">
+          <span class="poll-indicator-dot" aria-hidden="true"></span>
+          Panel poll: <b id="poll-interval" data-testid="poll-interval">—</b> ms
+        </span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"    data-testid="stat-approved"><div class="stat-label">Approved (verified)</div><div class="stat-value" id="stat-approved">0</div></div>
+        <div class="stat-card"    data-testid="stat-rejected"><div class="stat-label">Rejected</div><div class="stat-value" id="stat-rejected">0</div></div>
+        <div class="stat-card"    data-testid="stat-skipped"><div class="stat-label">Skipped (rules)</div><div class="stat-value" id="stat-skipped">0</div></div>
+        <div class="stat-card"    data-testid="stat-failed"><div class="stat-label">Failed (tech)</div><div class="stat-value" id="stat-failed">0</div></div>
+        <div class="stat-card"    data-testid="stat-skippedQ"><div class="stat-label">In Skipped Queue</div><div class="stat-value" id="stat-skippedQ">0</div></div>
+      </div>
+
+      <!-- Bug #5 — Runtime metrics strip. Compact, dense, dashboard-native. -->
+      <div class="metrics-grid" data-testid="metrics-grid">
+        <div class="metric" data-testid="metric-pending"><span class="metric-label">Pending</span><span class="metric-value" id="metric-pending">0</span></div>
+        <div class="metric" data-testid="metric-retry"><span class="metric-label">Retry (next)</span><span class="metric-value" id="metric-retry">0</span></div>
+        <div class="metric" data-testid="metric-cycles"><span class="metric-label">Cycles</span><span class="metric-value" id="metric-cycles">0</span></div>
+        <div class="metric" data-testid="metric-poll-last"><span class="metric-label">Poll (last)</span><span class="metric-value" id="metric-poll-last">— ms</span></div>
+        <div class="metric" data-testid="metric-poll-avg"><span class="metric-label">Poll (avg)</span><span class="metric-value" id="metric-poll-avg">— ms</span></div>
+        <div class="metric" data-testid="metric-verify-avg"><span class="metric-label">Verify (avg)</span><span class="metric-value" id="metric-verify-avg">— ms</span></div>
+        <div class="metric" data-testid="metric-last-refresh"><span class="metric-label">Last refresh</span><span class="metric-value" id="metric-last-refresh">—</span></div>
+        <div class="metric" data-testid="metric-uptime"><span class="metric-label">Browser uptime</span><span class="metric-value" id="metric-uptime">0s</span></div>
+        <div class="metric" data-testid="metric-queue"><span class="metric-label">Queue</span><span class="metric-value" id="metric-queue">0</span></div>
+        <div class="metric" data-testid="metric-memory"><span class="metric-label">Memory (RSS)</span><span class="metric-value" id="metric-memory">— MB</span></div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header">
+            <span>Current Processing Queue</span>
+            <span class="panel-hint">Preview — updated every cycle</span>
+          </div>
+          <div class="panel-body" id="queue-preview" data-testid="queue-preview">
+            <div class="empty">Queue is empty. Start the bot to begin polling.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span>Live Log</span>
+            <button class="btn btn-mini" id="btn-clear-log" data-testid="btn-clear-log">Clear</button>
+          </div>
+          <div class="log" id="live-log" data-testid="live-log"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Skipped -->
+    <section class="view" data-view="skipped" hidden>
+      <div class="panel">
+        <div class="panel-header">
+          <span>Skipped Transactions</span>
+          <span class="panel-hint">Business skips only — Reject only (no manual approve)</span>
+        </div>
+        <div class="panel-body">
+          <table class="table" data-testid="skipped-table">
+            <thead><tr>
+              <th>Added</th><th>Player</th><th>Amount</th><th>Bonus Reload</th>
+              <th>Reason</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="skipped-tbody"><tr class="empty-row"><td colspan="6">No transactions currently skipped.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ History -->
+    <section class="view" data-view="history" hidden>
+      <div class="row control-row">
+        <button class="btn btn-primary" id="btn-refresh-history" data-testid="btn-refresh-history">Refresh</button>
+        <button class="btn btn-ghost" id="btn-export-history" data-testid="btn-export-history">Export CSV</button>
+
+        <!-- Bug #6 — Search / Filter / Pagination controls -->
+        <input class="input-inline" id="hist-search" data-testid="hist-search" type="search" placeholder="Search player, notes, reason…" />
+        <select id="hist-status" data-testid="hist-status" class="input-inline">
+          <option value="">All statuses</option>
+          <option value="APPROVED">APPROVED</option>
+          <option value="REJECTED">REJECTED</option>
+          <option value="SKIPPED">SKIPPED</option>
+        </select>
+        <select id="hist-page-size" data-testid="hist-page-size" class="input-inline">
+          <option value="25">25 / page</option>
+          <option value="50" selected>50 / page</option>
+          <option value="100">100 / page</option>
+          <option value="250">250 / page</option>
+        </select>
+        <span class="pager">
+          <button class="btn btn-mini" id="hist-prev"  data-testid="hist-prev">‹ Prev</button>
+          <span class="pager-info"     id="hist-page-info" data-testid="hist-page-info">1 / 1</span>
+          <button class="btn btn-mini" id="hist-next"  data-testid="hist-next">Next ›</button>
+        </span>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>Approval History</span><span class="panel-hint" id="hist-count-hint">0 rows</span></div>
+        <div class="panel-body">
+          <table class="table sortable" data-testid="history-table">
+            <thead><tr>
+              <th data-sort="pid">PID</th>
+              <th data-sort="time">Time</th>
+              <th data-sort="player">Player</th>
+              <th data-sort="amount">Amount</th>
+              <th data-sort="bonusReload">Bonus Reload</th>
+              <th data-sort="status">Status</th>
+              <th data-sort="reason">Reason</th>
+              <th data-sort="processDurationMs">Duration</th>
+              <th data-sort="verificationResult">Verification</th>
+            </tr></thead>
+            <tbody id="history-tbody"><tr class="empty-row"><td colspan="9">No history yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ DB Viewer -->
+    <section class="view" data-view="dbviewer" hidden>
+      <div class="row control-row">
+        <button class="btn btn-primary" id="btn-integrity" data-testid="btn-integrity">Run Integrity Check</button>
+        <button class="btn btn-warn"    id="btn-cleanup"  data-testid="btn-cleanup">Database Cleanup</button>
+        <button class="btn btn-ghost"   id="btn-prune-logs" data-testid="btn-prune-logs">Prune Old Logs</button>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span>Database Viewer</span></div>
+        <div class="panel-body">
+          <div id="db-result" data-testid="db-result" class="db-result">Idle.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ Settings -->
+    <section class="view" data-view="settings" hidden>
+      <div class="panel">
+        <div class="panel-header"><span>Configuration</span></div>
+        <div class="panel-body settings">
+          <label>Panel URL
+            <input id="cfg-startURL" data-testid="cfg-startURL" type="text" placeholder="https://…/deposit-pending" />
+          </label>
+          <label>Panel Refresh Interval (ms)
+            <input id="cfg-refresh" data-testid="cfg-refresh" type="number" min="1000" max="10000" step="100" />
+            <small class="hint">
+              Controls how often the browser panel is polled
+              (read → process → verify). Range: 1000–10000 ms. Default: 3000 ms.
+              The dashboard itself refreshes automatically from events —
+              this setting does not affect UI updates.
+            </small>
+          </label>
+          <label>Daily Limit Action
+            <select id="cfg-dailyAction" data-testid="cfg-dailyAction">
+              <option value="skip">Skip → Manual Review Queue</option>
+              <option value="reject">Auto Reject</option>
+            </select>
+          </label>
+          <label>Bonus 5000 Cooldown (minutes)
+            <input id="cfg-cooldown" data-testid="cfg-cooldown" type="number" min="0" step="1" />
+          </label>
+          <label>Cleanup Retention (days)
+            <input id="cfg-retention" data-testid="cfg-retention" type="number" min="1" step="1" />
+          </label>
+          <label>Log File Retention (days)
+            <input id="cfg-logRetention" data-testid="cfg-logRetention" type="number" min="0" step="1" />
+            <small class="hint">
+              Daily log files (<code>csv-YYYY-MM-DD.csv</code>,
+              <code>debug-YYYY-MM-DD.log</code>) older than this window
+              are auto-deleted on start / config change. Set to 0 to
+              disable auto-cleanup entirely.
+            </small>
+          </label>
+          <label>History Export Path (optional)
+            <input id="cfg-exportPath" data-testid="cfg-exportPath" type="text" placeholder="Leave empty to be asked on export" />
+          </label>
+          <label>Debug Log Level
+            <select id="cfg-debug" data-testid="cfg-debug">
+              <option value="error">error</option>
+              <option value="warn">warn</option>
+              <option value="info">info</option>
+              <option value="debug">debug</option>
+            </select>
+          </label>
+          <div class="row">
+            <button class="btn btn-primary" id="btn-save-config" data-testid="btn-save-config">Save Configuration</button>
+            <span id="cfg-saved" class="hint"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./scripts/app.js"></script>
+</body>
+</html>

@@ -87,3 +87,4 @@ credentials.json
 *.key
 .credentials
 bot-reload/bonus-reload-bot/node_modules/electron/dist/electron
+bot-reload/node_modules/electron/dist/electron
